@@ -41,7 +41,7 @@ def calc_kernel_neigh(X, k = 5, bandwidth = 1, truncate = False, truncate_param 
             k += 1
         print("number of nearest neighbor: " + str(k))
 
-    print("final number of nearest neighbor (make connected): " + str(k))
+    # print("final number of nearest neighbor (make connected): " + str(k))
     # return a matrix of shortest path distances between nodes. Inf if no distances between nodes (should be no Inf, because the graph is connected)
     D = np.array(nx.floyd_warshall_numpy(G))
     assert np.max(D) < np.inf

@@ -2,7 +2,7 @@ import sys, os
 sys.path.append('./')
 import numpy as np
 import torch
-from torch_sqrtm import MatrixSquareRoot
+from .torch_sqrtm import MatrixSquareRoot
 
 from torch.optim import Adam
 import time
@@ -10,6 +10,9 @@ import warnings
 
 from multiprocessing import Pool, cpu_count
 import matplotlib.pyplot as plt
+# from rich.progress import *
+from rich.progress import track
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 warnings.filterwarnings("ignore")
@@ -147,14 +150,12 @@ def est_cov(X, K_trun, weighted_kt = True):
 
 
 def _est_cov(X, K_trun, weighted_kt, t1, t2):
-    print(t1)
     X = torch.FloatTensor(X)
     ntimes = X.shape[0]
     ngenes = X.shape[1]
     empir_cov = torch.zeros(t2-t1, ngenes, ngenes)
 
     for t_idx, t in enumerate(np.arange(t1, t2)):
-        print(t)
         weight = torch.FloatTensor(K_trun[t, :])
         if weighted_kt:
             weight = (weight > 0)
@@ -292,8 +293,10 @@ class G_admm_minibatch():
 
     def train(self, max_iters = 50, n_intervals = 1, lamb = 2.1e-4, alpha = 2, rho = 1.7, beta = 0, theta_init_offset = 0.1):
         n_batches = int(np.ceil(self.ntimes/self.batchsize))
-        for batch in range(n_batches):
-            print("start running batch " + str(batch))
+        # pbar = Progress()
+        # task = pbar.add_task("[cyan]1. Inferring GRNs with CeSpGRN", total=n_batches)
+        for batch in track(range(n_batches), description="[cyan]1. Inferring GRNs with CeSpGRN"):
+            # print("start running batch " + str(batch))
             start_time = time.time()
             # select a minibatch, and load to cuda
             start_idx = batch * self.batchsize
@@ -385,7 +388,7 @@ class G_admm_minibatch():
                     losses2.append(loss2.item())
                     losses3.append(loss3.item())
                     its.append(it)
-                    print("n_iter: {}, duality gap: {:.4e}, primal residual: {:.4e}, dual residual: {:4e}, loss1: {:4e}, loss2: {:4e}, loss3: {:.4e}".format(it+1, duality_gap.max().item(), primal_residual.max().item(), dual_residual.max().item(), loss1.item(), loss2.item(), loss3.item()))
+                    # print("n_iter: {}, duality gap: {:.4e}, primal residual: {:.4e}, dual residual: {:4e}, loss1: {:4e}, loss2: {:4e}, loss3: {:.4e}".format(it+1, duality_gap.max().item(), primal_residual.max().item(), dual_residual.max().item(), loss1.item(), loss2.item(), loss3.item()))
                     
                     # if duality_gap < 1e-8:
                     #     break
@@ -398,7 +401,8 @@ class G_admm_minibatch():
             loss1 = self.neg_lkl_loss(Z, w_empir_cov).sum()
             loss2 = Z.abs().sum()
             loss3 = (mask * Z).pow(2).sum()
-            print("Batch loss: loss1: {:.5f}, loss2: {:.5f}, loss3: {:.5f}".format(loss1.item(), loss2.item(), loss3.item()))
+            # pbar.set_postfix_str("Batch {} loss: loss1: {:.5f}, loss2: {:.5f}, loss3: {:.5f}".format(batch, loss1.item(), loss2.item(), loss3.item()))
+            # pbar.update(task, advance=1/n_batches)
 
             # # plot loss curves
             # fig = plt.figure(figsize = (15,5))  
@@ -416,7 +420,7 @@ class G_admm_minibatch():
                 self.thetas[start_idx:] = Z.detach().cpu().numpy()
             del thetas, U, I, Y, ll, Z
 
-            print("Finished running batch {:d}, running time: {:.2f} sec".format(batch, time.time() - start_time))
+            # print("Finished running batch {:d}, running time: {:.2f} sec".format(batch, time.time() - start_time))
 
             # remove target-target if beta > 0
             if beta > 0:
